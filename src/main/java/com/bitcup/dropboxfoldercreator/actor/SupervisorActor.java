@@ -7,7 +7,7 @@ import com.bitcup.dropboxfoldercreator.domain.Student;
 import com.bitcup.dropboxfoldercreator.message.CreateFolders;
 import com.bitcup.dropboxfoldercreator.message.CreationResult;
 import com.bitcup.dropboxfoldercreator.message.RecordRetry;
-import com.dropbox.core.DbxException;
+import com.dropbox.core.RetryException;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -83,10 +83,10 @@ public class SupervisorActor extends UntypedActor {
     @Override
     public SupervisorStrategy supervisorStrategy() {
         return new OneForOneStrategy(10, Duration.create("1 minute"), t -> {
-            if (t instanceof DbxException) {
+            if (t instanceof RetryException) {
                 // note: restart calls stop, so we cannot put code in supervised actor's postStop
                 // that is specific to IllegalArgumentException because it will be executed also
-                // when DbxException happens and the supervised actor is restarted
+                // when RetryException happens and the supervised actor is restarted
                 return SupervisorStrategy.restart();
             } else if (t instanceof IllegalArgumentException) {
                 return SupervisorStrategy.stop();

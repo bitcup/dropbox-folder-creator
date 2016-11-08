@@ -35,6 +35,7 @@ public class App {
         // create folders
         supervisorActorRef.tell(new CreateFolders(), supervisorActorRef);
 
+        system.awaitTermination();
         LOGGER.info("Shutting down actor system...");
     }
 

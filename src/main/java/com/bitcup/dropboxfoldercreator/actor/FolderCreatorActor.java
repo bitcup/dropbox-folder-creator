@@ -11,6 +11,7 @@ import com.bitcup.dropboxfoldercreator.message.CreateFolders;
 import com.bitcup.dropboxfoldercreator.message.CreationResult;
 import com.bitcup.dropboxfoldercreator.message.RecordRetry;
 import com.dropbox.core.DbxException;
+import com.dropbox.core.RetryException;
 import com.dropbox.core.v2.files.FolderMetadata;
 import com.dropbox.core.v2.sharing.AccessLevel;
 import scala.Option;
@@ -59,23 +60,27 @@ public class FolderCreatorActor extends UntypedActor {
 
     private void createFolders() throws DbxException {
         try {
-            int r = random.nextInt(3);
-            if (r == 0) {
-                throw new DbxException("intermittent dbx failure: could not create folders for " + student.getStudentFolderName());
-            }
-            if (r == 1) {
-                throw new IllegalArgumentException("irrecoverable failure: could not create folders for " + student.getStudentFolderName());
-            }
+            String topFolderLink = "link goes here";
             if (Config.val("invoke.dbx").equals("true")) {
                 FolderMetadata studentFolder = dropboxClient.createFolderIfNotExists(student.getStudentFolderName(), Config.val("dropbox.top.folder"));
-                dropboxClient.shareFolderAndGetUrl(studentFolder, student.getEmail(), AccessLevel.EDITOR);
+                dropboxClient.createFolderIfNotExists(Config.val("dropbox.sub1.folder"), studentFolder.getPathDisplay());
+                dropboxClient.createFolderIfNotExists(Config.val("dropbox.sub2.folder"), studentFolder.getPathDisplay());
+                topFolderLink = dropboxClient.shareFolderAndGetUrl(studentFolder, student.getEmail(), AccessLevel.EDITOR);
+            } else {
+                int r = random.nextInt(3);
+                if (r == 0) {
+                    throw new RetryException("", "intermittent dbx failure: could not create folders for " + student.getStudentFolderName());
+                }
+                if (r == 1) {
+                    throw new IllegalArgumentException("irrecoverable failure: could not create folders for " + student.getStudentFolderName());
+                }
             }
+            log.info("success: folders created for: {}", student.getStudentFolderName());
+            supervisor.tell(new CreationResult.Success(student, topFolderLink), getSelf());
         } catch (IllegalArgumentException e) {
             // we tell supervisor about failure
             supervisor.tell(new CreationResult.Failure(student), getSelf());
             throw e;
         }
-        log.info("success: folders created for: {}", student.getStudentFolderName());
-        supervisor.tell(new CreationResult.Success(student, "link goes here"), getSelf());
     }
 }
